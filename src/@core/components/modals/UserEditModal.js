@@ -1,0 +1,758 @@
+// ** React Imports
+import { useState, useEffect } from "react"
+
+// ** Third Party Components
+import Flatpickr from "react-flatpickr"
+import { Calendar, X, Clock, Plus, UserX } from "react-feather"
+import Swal from "sweetalert2"
+import withReactContent from "sweetalert2-react-content"
+const MySwal = withReactContent(Swal)
+// ** Reactstrap Imports
+import {
+  Modal,
+  Input,
+  Label,
+  Button,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  InputGroup,
+  InputGroupText,
+  Row,
+  Col,
+  UncontrolledButtonDropdown,
+  DropdownToggle,
+  DropdownMenu,
+  DropdownItem
+} from "reactstrap"
+
+// ** Styles
+import "@styles/react/libs/flatpickr/flatpickr.scss"
+import {
+  storeBookTransactionData,
+  updateBookTransaction,
+  CreateNewCategory,
+  CreateNewContact,
+  disableContactById
+} from "@apifile"
+
+const UserEditModal = ({
+  open,
+  handleModal,
+  pageData,
+  transType,
+  fetchData,
+  editData
+}) => {
+
+
+  // ** State
+  const [formModal, setFormModal] = useState(false)
+  const [formContactModal, setFormContactModal] = useState(false)
+  const [Picker, setPicker] = useState(new Date())
+  const [basic, setBasic] = useState(new Date())
+  const [formData, setFormData] = useState({
+    amount: 0,
+    contact_type_id: "",
+    contact_type_name: "Select",
+    date: Picker,
+    time: basic,
+    book_contact_id: "",
+    book_contact_name: "Select",
+    transaction_category_id: "",
+    transaction_category_name: "Select",
+    payment_method_id: "",
+    payment_method_name: "Select",
+    book_id: "",
+    type: transType,
+    description: "",
+    page_no: ""
+  })
+
+  
+  const [selectedFiles, setSelectedFiles] = useState([])
+
+  const handleFileSelect = (event) => {
+    // setSelectedFiles([...selectedFiles, ...event.target.files]);
+    setSelectedFiles(event.target.files)
+  }
+
+  // ** Custom close btn
+  const CloseBtn = (
+    <X className="cursor-pointer" size={15} onClick={() => handleModal("")} />
+  )
+
+  const sectionLevelEdit = (e, fieldName) => {
+    setFormData((oldList) => {
+      const newList = JSON.parse(JSON.stringify(oldList))
+      const getField = fieldName.dlevel
+      newList[getField] = fieldName.f_val
+      newList.date = formateDate(Picker)
+      newList.time = formateTime(basic)
+      newList.book_id = pageData?.bookId
+      newList.type = transType
+      if (
+        getField === "contact_type_id" ||
+        getField === "book_contact_id" ||
+        getField === "transaction_category_id" ||
+        getField === "payment_method_id"
+      ) {
+        const getField_name = fieldName.dlevel_name
+        newList[getField_name] = fieldName.t_val
+      }
+
+      return newList
+    })
+  }
+
+  const handleCategoryChange = (e, fieldName) => {
+    setCustomModal((oldList) => {
+      const newList = JSON.parse(JSON.stringify(oldList))
+      const getField = fieldName.dlevel
+      newList[getField] = fieldName.f_val
+      newList.business_id = pageData?.businessId
+      newList.book_id = pageData?.bookId
+      return newList
+    })
+  }
+
+  const handleFormSubmit = (e) => {
+    if (
+      formData.amount === 0 ||
+      formData.transaction_category_id === "" ||
+      formData.payment_method_id === "" ||
+      formData.book_id === "" ||
+      formData.type === "" || formData.date === ""
+    ) {
+      MySwal.fire({
+        title: "Warning!",
+        text: " Please select required fields!",
+        icon: "warning",
+        customClass: {
+          confirmButton: "btn btn-primary"
+        },
+        buttonsStyling: false
+      })
+      return false
+    }
+
+    editData.edit = false
+  }
+
+  const handleCategoryCreate = () => {
+    if (customModal.category_name === "" && formModal === true) {
+      MySwal.fire({
+        title: "Warning!",
+        text: " Please select required fields!",
+        icon: "warning",
+        customClass: {
+          confirmButton: "btn btn-primary"
+        },
+        buttonsStyling: false
+      })
+      return false
+    }
+    CreateNewCategory(customModal)
+      .then((res) => {
+        if (res.status === 200) {
+          MySwal.fire({
+            title: "success!",
+            text: "Your Transaction saved successfully!",
+            icon: "success",
+            customClass: {
+              confirmButton: "btn btn-primary"
+            },
+            buttonsStyling: false,
+            timerProgressBar: true,
+            timer: 2000
+          })
+
+          fetchData()
+          setCustomModal({
+            category_name: "",
+            business_id: "",
+            contact_name: "",
+            book_id: "",
+            primary_number: "",
+            secondary_number: "",
+            remarks: "",
+            supllier_files: [],
+            contact_type_id: "",
+            contact_type_name: "Select"
+          })
+          setFormModal(!formModal)
+        }
+      })
+      .catch((err) => err)
+  }
+
+  const handleContactCreate = () => {
+    if (
+      (customModal.contact_name === "" || customModal.primary_number === "") &&
+      formContactModal === true
+    ) {
+      MySwal.fire({
+        title: "Warning!",
+        text: " Please select required fields!",
+        icon: "warning",
+        customClass: {
+          confirmButton: "btn btn-primary"
+        },
+        buttonsStyling: false
+      })
+      return false
+    }
+    const formData = new FormData()
+    for (let file of selectedFiles) {
+      formData.append("files[]", file)
+    }
+    formData.append("contact_name", customModal.contact_name)
+    formData.append("book_id", customModal.book_id)
+    formData.append("business_id", customModal.business_id)
+    // return false;
+    CreateNewContact(formData)
+      .then((res) => {
+        if (res.status === 200) {
+          MySwal.fire({
+            title: "success!",
+            text: "Your contact saved successfully!",
+            icon: "success",
+            customClass: {
+              confirmButton: "btn btn-primary"
+            },
+            buttonsStyling: false,
+            timerProgressBar: true,
+            timer: 2000
+          })
+
+          fetchData()
+          setCustomModal({
+            category_name: "",
+            business_id: "",
+            contact_name: "",
+            book_id: "",
+            primary_number: "",
+            secondary_number: "",
+            remarks: "",
+            supllier_files: []
+          })
+          setFormContactModal(!formContactModal)
+        }
+      })
+      .catch((err) => err)
+  }
+
+  const handleContactDisable = (cont_id) => {
+    disableContactById({ id: cont_id })
+      .then((res) => {
+        if (res.status === 200) {
+          MySwal.fire({
+            title: "success!",
+            text: "Your contact disabled successfully!",
+            icon: "success",
+            customClass: {
+              confirmButton: "btn btn-primary"
+            },
+            buttonsStyling: false,
+            timerProgressBar: true,
+            timer: 2000
+          })
+
+          setCustomModal({
+            category_name: "",
+            business_id: "",
+            contact_name: "",
+            book_id: "",
+            primary_number: "",
+            secondary_number: "",
+            remarks: "",
+            supllier_files: []
+          })
+
+          fetchData()
+        }
+      })
+      .catch((err) => err)
+  }
+
+  useEffect(() => {
+    
+  }, [])
+
+  return (
+    <Modal
+      isOpen={open}
+      toggle={() => handleModal(transType)}
+      className="sidebar-lg"
+      modalClassName="modal-slide-in"
+      contentClassName="pt-0"
+    >
+      <ModalHeader
+        className="mb-1"
+        toggle={() => handleModal(transType)}
+        close={CloseBtn}
+        tag="div"
+      >
+        <h5 className="modal-title">
+          {transType === "Cash In" || transType === "Cash Out" ? "Edit" : "Add"}{" "}
+          {transType === "cashIn" || transType === "Cash In"
+            ? "Cash In"
+            : "Cash Out"}{" "}
+          Entry
+        </h5>
+      </ModalHeader>
+      <ModalBody className="flex-grow-1">
+        <Row>
+          <Col md="6" sm="12">
+            <div className="mb-1">
+              <Label className="form-label" for="joining-date">
+                Date
+              </Label>
+              <InputGroup>
+                <InputGroupText>
+                  <Calendar size={15} />
+                </InputGroupText>
+                <Flatpickr
+                  className="form-control"
+                  id="joining-date"
+                  value={Picker}
+                  onChange={(date) => handleDate(date)}
+                />
+              </InputGroup>
+            </div>
+          </Col>
+          <Col md="6" sm="12">
+            <div className="mb-1">
+              <Label className="form-label" for="joining-date">
+                Time
+              </Label>
+              <InputGroup>
+                <InputGroupText>
+                  <Clock size={15} />
+                </InputGroupText>
+                <Flatpickr
+                  className="form-control"
+                  id="timepicker"
+                  value={basic}
+                  options={{
+                    enableTime: true,
+                    noCalendar: true,
+                    timeFormat: "H:i",
+                    time_24hr: false
+                  }}
+                  onChange={(date) => handleTime(date)}
+                />
+              </InputGroup>
+            </div>
+          </Col>
+        </Row>
+
+        
+        <div className="mb-1">
+          <Label className="form-label d-block" for="full-name">
+            Contact Name
+          </Label>
+          <UncontrolledButtonDropdown className="w-50">
+            <Button outline color="primary">
+              {formData.book_contact_name}
+            </Button>
+            <DropdownToggle
+              outline
+              className="dropdown-toggle-split"
+              color="primary"
+              caret
+            ></DropdownToggle>
+            <DropdownMenu end>
+              {pageData?.bookContact &&
+                pageData?.bookContact.map((value, index) => (
+                  <DropdownItem
+                    key={index}
+                    onClick={(e) =>
+                      sectionLevelEdit(e, {
+                        dlevel: "book_contact_id",
+                        dlevel_name: "book_contact_name",
+                        f_val: e.target.value,
+                        t_val: value.name
+                      })
+                    }
+                    value={value.id}
+                  >
+                    {value.name}{" "}
+                    <UserX
+                      onClick={(e) => handleContactDisable(value.id)}
+                      size={20}
+                    />
+                  </DropdownItem>
+                ))}
+
+              <DropdownItem divider></DropdownItem>
+              <DropdownItem
+                href="/"
+                tag="a"
+                onClick={(e) => {
+                  e.preventDefault()
+                  setFormContactModal(!formContactModal)
+                }}
+              >
+                <Plus size={15} />
+                Add new Contact
+              </DropdownItem>
+              <Modal
+                isOpen={formContactModal}
+                toggle={() => setFormModal(!formContactModal)}
+                className="modal-dialog-centered"
+              >
+                <ModalHeader
+                  toggle={() => setFormContactModal(!formContactModal)}
+                >
+                  Add New Contact
+                </ModalHeader>
+                <ModalBody>
+
+                <div className="mb-1">
+          <Label className="form-label d-block" for="full-name">
+            Contact Type
+          </Label>
+          <UncontrolledButtonDropdown className="w-50">
+            <Button outline color="primary">
+              {formData.contact_type_name}
+            </Button>
+            <DropdownToggle
+              outline
+              className="dropdown-toggle-split"
+              color="primary"
+              caret
+            ></DropdownToggle>
+            <DropdownMenu end>
+              {pageData?.contactType &&
+                pageData?.contactType.map((value, index) => (
+                  <DropdownItem
+                    key={index}
+                    onClick={(e) =>
+                      sectionLevelEdit(e, {
+                        dlevel: "contact_type_id",
+                        dlevel_name: "contact_type_name",
+                        f_val: e.target.value,
+                        t_val: value.name
+                      })
+                    }
+                    value={value.id}
+                  >
+                    {value.name}
+                  </DropdownItem>
+                ))}
+
+              <DropdownItem divider></DropdownItem>
+              {/* <DropdownItem
+                href="/"
+                tag="a"
+                onClick={(e) => e.preventDefault()}
+              >
+                <Plus size={15} />
+                Add new Contact Type
+              </DropdownItem> */}
+            </DropdownMenu>
+          </UncontrolledButtonDropdown>
+        </div>
+        
+                  <div className="mb-2">
+                    <Label className="form-label" for="email">
+                      Contact Name*:
+                    </Label>
+                    <Input
+                      type="text"
+                      id="email"
+                      placeholder=""
+                      onChange={(e) =>
+                        handleCategoryChange(e, {
+                          dlevel: "contact_name",
+                          f_val: e.target.value
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="mb-2">
+                    <Label className="form-label" for="email">
+                      Primary Contact No*:
+                    </Label>
+                    <Input
+                      type="number"
+                      id="email"
+                      placeholder=""
+                      onChange={(e) =>
+                        handleCategoryChange(e, {
+                          dlevel: "primary_number",
+                          f_val: e.target.value
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="mb-2">
+                    <Label className="form-label" for="email">
+                      Secondary Contact No:
+                    </Label>
+                    <Input
+                      type="number"
+                      id="email"
+                      placeholder=""
+                      onChange={(e) =>
+                        handleCategoryChange(e, {
+                          dlevel: "secondary_number",
+                          f_val: e.target.value
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="mb-2">
+                    <Label className="form-label" for="email">
+                      Remarks:
+                    </Label>
+                    <Input
+                      type="textarea"
+                      id="email"
+                      placeholder=""
+                      onChange={(e) =>
+                        handleCategoryChange(e, {
+                          dlevel: "remarks",
+                          f_val: e.target.value
+                        })
+                      }
+                    />
+                  </div>
+                  <div className="mb-2">
+                    <Label className="form-label" for="email">
+                      Doccument Upload:
+                    </Label>
+                    {/* <FileUploaderMultiple {...{setCustomModal}}/> */}
+                    <Input type="file" multiple onChange={handleFileSelect} />
+                  </div>
+                </ModalBody>
+                <ModalFooter>
+                  <Button
+                    color="primary"
+                    onClick={(e) => handleContactCreate()}
+                  >
+                    Save
+                  </Button>
+                </ModalFooter>
+              </Modal>
+            </DropdownMenu>
+          </UncontrolledButtonDropdown>
+        </div>
+
+        <Row>
+          <Row>
+            <Col md="6" sm="12">
+              <div className="mb-1">
+                <Label className="form-label" for="salary">
+                  Amount
+                </Label>
+                <InputGroup>
+                  <Input
+                    type="number"
+                    id="salary"
+                    onChange={(e) =>
+                      sectionLevelEdit(e, {
+                        dlevel: "amount",
+                        f_val: e.target.value
+                      })
+                    }
+                    value={formData.amount}
+                  />
+                </InputGroup>
+              </div>
+            </Col>
+
+            <Col md="6" sm="12">
+              <div className="mb-1">
+                <Label className="form-label" for="salary">
+                  Page No
+                </Label>
+                <InputGroup>
+                  <Input
+                    type="number"
+                    id="salary"
+                    onChange={(e) =>
+                      sectionLevelEdit(e, {
+                        dlevel: "page_no",
+                        f_val: e.target.value
+                      })
+                    }
+                    value={formData.page_no}
+                  />
+                </InputGroup>
+              </div>
+            </Col>
+          </Row>
+          <Col md="6" sm="12">
+            <div className="mb-1">
+              <Label className="form-label d-block" for="post">
+                Category
+              </Label>
+              <UncontrolledButtonDropdown className="w-100">
+                <Button outline color="primary">
+                  {formData.transaction_category_name}
+                </Button>
+                <DropdownToggle
+                  outline
+                  className="dropdown-toggle-split"
+                  color="primary"
+                  caret
+                ></DropdownToggle>
+                <DropdownMenu end>
+                  {pageData?.transactionCategory &&
+                    pageData?.transactionCategory.map((value, index) => (
+                      <DropdownItem
+                        key={index}
+                        onClick={(e) =>
+                          sectionLevelEdit(e, {
+                            dlevel: "transaction_category_id",
+                            dlevel_name: "transaction_category_name",
+                            f_val: e.target.value,
+                            t_val: value.name
+                          })
+                        }
+                        value={value.id}
+                      >
+                        {value.name}
+                      </DropdownItem>
+                    ))}
+                  <div>
+                    <DropdownItem
+                      href="/"
+                      tag="a"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setFormModal(!formModal);
+                      }}
+                    >
+                      <Plus size={15} />
+                      Add new Category
+                    </DropdownItem>
+                    <Modal
+                      isOpen={formModal}
+                      toggle={() => setFormModal(!formModal)}
+                      className="modal-dialog-centered"
+                    >
+                      <ModalHeader toggle={() => setFormModal(!formModal)}>
+                        Add New Category
+                      </ModalHeader>
+                      <ModalBody>
+                        <div className="mb-2">
+                          <Label className="form-label" for="email">
+                            Category Name:
+                          </Label>
+                          <Input
+                            type="email"
+                            id="email"
+                            placeholder="e.g. Salary, Food, Travel"
+                            onChange={(e) =>
+                              handleCategoryChange(e, {
+                                dlevel: "category_name",
+                                f_val: e.target.value
+                              })
+                            }
+                          />
+                        </div>
+                      </ModalBody>
+                      <ModalFooter>
+                        <Button
+                          color="primary"
+                          onClick={(e) => handleCategoryCreate()}
+                        >
+                          Save
+                        </Button>
+                      </ModalFooter>
+                    </Modal>
+                  </div>
+                </DropdownMenu>
+              </UncontrolledButtonDropdown>
+            </div>
+          </Col>
+          <Col md="6" sm="12">
+            <div className="mb-1">
+              <Label className="form-label d-block" for="post">
+                Payment Method
+              </Label>
+              <UncontrolledButtonDropdown className="w-100">
+                <Button outline color="primary">
+                  {formData.payment_method_name}
+                </Button>
+                <DropdownToggle
+                  outline
+                  className="dropdown-toggle-split"
+                  color="primary"
+                  caret
+                ></DropdownToggle>
+                <DropdownMenu end>
+                  {pageData?.paymentMethod &&
+                    pageData?.paymentMethod.map((value, index) => (
+                      <DropdownItem
+                        key={index}
+                        onClick={(e) =>
+                          sectionLevelEdit(e, {
+                            dlevel: "payment_method_id",
+                            dlevel_name: "payment_method_name",
+                            f_val: e.target.value,
+                            t_val: value.name
+                          })
+                        }
+                        value={value.id}
+                      >
+                        {value.name}
+                      </DropdownItem>
+                    ))}
+                  <DropdownItem divider></DropdownItem>
+                  <DropdownItem
+                    href="/"
+                    tag="a"
+                    onClick={(e) => e.preventDefault()}
+                  >
+                    <Plus size={15} />
+                    Add new Payment Method
+                  </DropdownItem>
+                </DropdownMenu>
+              </UncontrolledButtonDropdown>
+            </div>
+          </Col>
+        </Row>
+
+        <Row>
+          <Col md="12" sm="12">
+            <div className="mb-1">
+              <Label className="form-label d-block" for="post">
+                Description
+              </Label>
+              <Input
+                type="textarea"
+                id="email"
+                placeholder="description..."
+                onChange={(e) =>
+                  sectionLevelEdit(e, {
+                    dlevel: "description",
+                    f_val: e.target.value
+                  })
+                }
+                value={formData.description}
+              />
+            </div>
+          </Col>
+        </Row>
+
+        <Button
+          className="me-1"
+          color="primary"
+          onClick={(e) => handleFormSubmit(e)}
+        >
+          Submit
+        </Button>
+        <Button color="secondary" onClick={handleModal} outline>
+          Cancel
+        </Button>
+      </ModalBody>
+    </Modal>
+  )
+}
+
+export default UserEditModal
